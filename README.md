@@ -59,9 +59,9 @@ asked. The description was written for the wrong phrasing. Say what you asked
 and what you expected, and it gets fixed — that feedback is more valuable than
 working around it.
 
-**What is actually built** is the Done section of [BACKLOG.md](BACKLOG.md).
-Everything under Queue is planned and does not exist yet. The daily loop builds
-one item a day; the table above is the intended shape, not the current state.
+**What is actually built** is listed under Contents below and in the Done
+section of [BACKLOG.md](BACKLOG.md). Everything under Queue is planned and does
+not exist yet.
 
 ## Layout
 
@@ -80,29 +80,17 @@ examples/
 
 See [BACKLOG.md](BACKLOG.md). The first unchecked item is the one being built.
 
-## Planned contents
+## Contents
 
-Nothing here is built yet. This table is the intended shape, and the daily loop
-fills it in one item at a time.
+| Skill | What it does |
+| --- | --- |
+| [pre-launch-security-audit](skills/pre-launch-security-audit) | The pass before anything goes public: secrets, permissions, exposed endpoints, dependency risk. |
+| [vibecode-tech-audit](skills/vibecode-tech-audit) | Audit a vibe-coded project for the legal, regulatory and technical exposure it carries. |
 
-| # | Skill | What it does |
-| --- | --- | --- |
-| 001 | [one-pass-sweep](skills/one-pass-sweep) | The whole point of the repository: one command over a project that reports every finding across every category below, ranked by exposure — what it would cost, how likely anyone is to notice, how long it takes to fix. |
-| 002 | [licence-compliance](skills/licence-compliance) | Resolve the dependency tree and check each licence against how the product is actually shipped. |
-| 003 | [personal-data-map](skills/personal-data-map) | What personal data the system touches, where it enters, where it is stored, who else receives it, and on what lawful basis each use rests. |
-| 004 | [privacy-notice-from-the-map](skills/privacy-notice-from-the-map) | Generate the privacy notice from the data map rather than from a template, so it describes the system that exists. |
-| 005 | [cookies-and-tracking](skills/cookies-and-tracking) | What is set before consent, what counts as strictly necessary and what people wrongly assume counts, and whether the banner does what it claims. |
-| 006 | [terms-and-consumer-rights](skills/terms-and-consumer-rights) | Terms of service against consumer law where the users actually are: withdrawal rights, auto-renewal and cancellation, terms a court would strike as unfair, and the ones that are unenforceable but still signal how you treat people. |
-| 007 | [ai-transparency-duties](skills/ai-transparency-duties) | When a system must disclose that a user is dealing with a machine, that content was generated, or that a decision was automated — and the practices that are simply prohibited. |
-| 008 | [accessibility-obligations](skills/accessibility-obligations) | Which accessibility duties bind a digital product in the markets it serves, and the specific failures that are both most common and most cheaply fixed. |
-| 009 | [cross-border-transfers](skills/cross-border-transfers) | Which processors receive data, in which countries, under what safeguard. |
-| 010 | [spend-blast-radius](skills/spend-blast-radius) | The economic one. |
-| 011 | [unit-economics-check](skills/unit-economics-check) | What one user costs to serve against what they pay, including the costs that scale with usage rather than with headcount. |
-| 012 | [name-and-brand-collision](skills/name-and-brand-collision) | Check the product name against existing marks and live products in the markets you sell to, before it is on invoices, domains and a logo. |
-| 013 | [data-provenance](skills/data-provenance) | Where training data, scraped content and seeded databases came from, and whether the use you are making of them is permitted by the source's own terms. |
-| 014 | [incident-readiness](skills/incident-readiness) | What has to exist before a breach, not after: the notification clocks that apply, who decides, what gets logged, and who has to be reachable. |
-| 015 | [fix-what-can-be-fixed](skills/fix-what-can-be-fixed) | Apply the fixes that are code — headers, caps, rate limits, consent gating, attribution files — and stage the ones that are documents for review. |
+These arrived already written and in daily use, rather than being built against the queue below — which is why most carry no item number. Some have Turkish bodies: they were written in the language they are used in, and translating them is a queue item rather than a blocker.
 
+Everything still under Queue in [BACKLOG.md](BACKLOG.md) does not exist
+yet. The daily loop builds one item a day.
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
