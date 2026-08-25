@@ -1,4 +1,4 @@
-# The 23 items
+# The 25 items
 
 Each item: **what it is → how to detect it → how to fix it**, with notes on
 false positives where they're common. Items 1–4 and 15–18 are where the
@@ -28,7 +28,9 @@ Contents:
 20. [Automate backups and test a restore](#20-automate-backups-and-test-a-restore)
 21. [Make account deletion real](#21-make-account-deletion-real)
 22. [Set spend alerts](#22-set-spend-alerts)
-23. [Attack it yourself](#23-attack-it-yourself)
+23. [Verify email ownership](#23-verify-email-ownership)
+24. [Make IDs unguessable](#24-make-ids-unguessable)
+25. [Attack it yourself](#25-attack-it-yourself)
 
 ---
 
@@ -487,7 +489,61 @@ endpoints, and rate-limit them (item 5). Consider cost anomaly detection on the
 cloud account. This item takes ten minutes and prevents the single most common
 "I woke up to a $4,000 bill" story.
 
-## 23. Attack it yourself
+## 23. Verify email ownership
+
+An account created with an address the user does not control is an account
+someone else can claim. Unverified signup also turns any "invite by email" or
+"reset password" flow into a way to attach yourself to another person's identity,
+and it's what makes a signup form worth spamming in the first place.
+
+**Detect.** Look at the signup handler: does it set the session and return a
+logged-in user in the same request that created the row? Grep the user schema for
+an `email_verified` / `confirmed_at` column — if there isn't one, verification
+was never built. Then check whether anything actually reads it: a column that
+exists but gates nothing is the more common version of this bug. Also check
+whether changing an email re-triggers verification; most generated code doesn't.
+
+**Fix.** Issue a single-use, expiring token (32+ random bytes, hashed at rest,
+valid an hour), email the link, and set `email_verified` only when it's redeemed.
+Then gate on it where it matters — not on login necessarily, but on the actions
+that assume a real owner: billing, invites, changing the email, anything visible
+to other users. Re-verify on email change, and keep the old address active until
+the new one is confirmed.
+
+Rate-limit the send (item 5) or the endpoint becomes a way to mail-bomb someone.
+
+**False positive.** An internal tool with seeded accounts and no public signup
+doesn't need this. Say so and move on.
+
+## 24. Make IDs unguessable
+
+Sequential integer IDs mean `/api/orders/1041` implies `/api/orders/1040` exists.
+That is not a vulnerability on its own — item 4's ownership check is the real
+defence — but it converts a single missed check into a full-database walk instead
+of one leaked row, and it leaks volume: a competitor reading `/orders/8143` knows
+how many orders you've taken.
+
+**Detect.** Look for `id SERIAL` / `AUTO_INCREMENT` / `bigserial` primary keys on
+tables that appear in URLs or API responses. The tell is in the client: any route
+like `/invoice/[id]` or `/u/123` where the number is small and increments.
+
+**Fix.** Use UUIDv4 (or ULID, if you want sortability) as the public identifier.
+Keep the integer key internally if the schema depends on it and expose only the
+random one — adding a `public_id uuid` column beside the existing key is usually
+less disruptive than migrating the primary key.
+
+```sql
+ALTER TABLE orders ADD COLUMN public_id uuid NOT NULL DEFAULT gen_random_uuid();
+CREATE UNIQUE INDEX orders_public_id_idx ON orders (public_id);
+```
+
+Never treat this as a substitute for authorization. An unguessable ID that
+nobody checks ownership of is still a hole — it's just a slower one to find.
+
+**False positive.** IDs that are already public and meant to be enumerable
+(blog post slugs, published product pages) don't need this.
+
+## 25. Attack it yourself
 
 Everything above is a category. This item is where you find the mistake specific
 to *this* app — and it's the step people skip, because it requires deliberately
