@@ -1,10 +1,18 @@
-# The 25 items
+# The 51 items
+
+Two sections, scored separately. **Section 1 (1–33)** is what must be true
+before anything goes live. **Section 2 (34–51)** is what survives a clean pass
+on all of it — most projects score well on the first and badly on the second,
+and that is the right order to fix them in.
 
 Each item: **what it is → how to detect it → how to fix it**, with notes on
-false positives where they're common. Items 1–4 and 15–18 are where the
+false positives where they are common. Items 1–4 and 15–18 are where the
 account-ending bugs live; do not let the length of the list flatten that.
 
-Contents:
+A check that does not apply to this stack is **N/A** and leaves the denominator.
+A check you cannot find evidence for either way is **UNKNOWN**, never a pass.
+
+## Section 1 — must be true before launch
 
 1. [Get the keys out of the client](#1-get-the-keys-out-of-the-client)
 2. [Purge .env from git history](#2-purge-env-from-git-history)
@@ -31,6 +39,35 @@ Contents:
 23. [Verify email ownership](#23-verify-email-ownership)
 24. [Make IDs unguessable](#24-make-ids-unguessable)
 25. [Attack it yourself](#25-attack-it-yourself)
+26. [Protect state-changing requests against CSRF](#26-protect-state-changing-requests-against-csrf)
+27. [Make sessions end](#27-make-sessions-end)
+28. [Make reset tokens expire, once](#28-make-reset-tokens-expire-once)
+29. [Slow down repeated failed logins](#29-slow-down-repeated-failed-logins)
+30. [Give the app a scoped database key](#30-give-the-app-a-scoped-database-key)
+31. [Put bot protection on public signup and contact forms](#31-put-bot-protection-on-public-signup-and-contact-forms)
+32. [Take the debug and admin endpoints out of production](#32-take-the-debug-and-admin-endpoints-out-of-production)
+33. [Read secrets from a manager, never from source](#33-read-secrets-from-a-manager-never-from-source)
+
+## Section 2 — the ones that are not obvious
+
+34. [Find the SECURITY DEFINER functions](#34-find-the-security-definer-functions)
+35. [Keep JWTs short and refresh tokens revocable](#35-keep-jwts-short-and-refresh-tokens-revocable)
+36. [Bind the session to something about the device](#36-bind-the-session-to-something-about-the-device)
+37. [Set Cache-Control on authenticated responses](#37-set-cache-control-on-authenticated-responses)
+38. [Do not ship sourcemaps to production](#38-do-not-ship-sourcemaps-to-production)
+39. [Put integrity hashes on external scripts](#39-put-integrity-hashes-on-external-scripts)
+40. [Make CI install from the lockfile, exactly](#40-make-ci-install-from-the-lockfile-exactly)
+41. [Pin third-party GitHub Actions to a commit SHA](#41-pin-third-party-github-actions-to-a-commit-sha)
+42. [Scan for secrets before they are committed](#42-scan-for-secrets-before-they-are-committed)
+43. [Scope internal package names](#43-scope-internal-package-names)
+44. [Verify webhook signatures, then verify they are recent](#44-verify-webhook-signatures-then-verify-they-are-recent)
+45. [Block SSRF on any fetch of a user-supplied URL](#45-block-ssrf-on-any-fetch-of-a-user-supplied-url)
+46. [Reject GraphQL queries that cost too much](#46-reject-graphql-queries-that-cost-too-much)
+47. [Compare secrets with a timing-safe function](#47-compare-secrets-with-a-timing-safe-function)
+48. [Keep regexes off untrusted input when they can backtrack](#48-keep-regexes-off-untrusted-input-when-they-can-backtrack)
+49. [Separate staging from production completely](#49-separate-staging-from-production-completely)
+50. [No shared logins](#50-no-shared-logins)
+51. [Keep an audit log for administrative changes](#51-keep-an-audit-log-for-administrative-changes)
 
 ---
 
@@ -585,3 +622,355 @@ signature stripped (`alg: none`), and a session after logout.
 Report results plainly: what you tried, what happened, what it means. If
 everything held, say that — it's the most valuable sentence in the report, and
 it's only credible because you actually tried.
+
+## 26. Protect state-changing requests against CSRF
+
+Another site can make the reader's browser issue a request to yours, carrying
+their session cookie with it. Without a token bound to that session, the request
+is indistinguishable from one the user meant to make.
+
+**Detect.** Look for a CSRF token in every POST/PUT/PATCH/DELETE handler, or for
+a framework's protection actually enabled (Django `CsrfViewMiddleware`, Rails
+`protect_from_forgery`, Laravel `VerifyCsrfToken`, Next.js — nothing by default).
+`SameSite=Lax` on the session cookie blocks the classic cross-site form POST and
+is a real mitigation, but it does not cover same-site subdomains or GET-triggered
+state changes.
+
+**Distinguish.** A pure token API where the credential travels in an
+`Authorization` header, never a cookie, is not CSRF-exposed — the browser does
+not attach headers automatically. Say so and mark it N/A rather than inventing a
+finding.
+
+**Fix.** Turn on the framework's protection. Where there is none, issue a random
+token per session, put it in a hidden field or a custom header, and compare it
+server-side with a timing-safe comparison (item 47). Never accept a state change
+over GET.
+
+## 27. Make sessions end
+
+A session that never expires means a token stolen once is access forever, and a
+password change that leaves old sessions alive fixes nothing.
+
+**Detect.** Find the session or JWT lifetime. Then find the password-reset and
+password-change handlers and check whether they invalidate other sessions. Most
+do not — this is the common half of the gap.
+
+**Fix.** Give sessions an absolute expiry and an idle timeout. On password reset,
+password change, email change, and MFA change, delete every other session for
+that user server-side. Deleting the cookie is not enough; the record has to go.
+
+## 28. Make reset tokens expire, once
+
+A reset link sits in an inbox for years. Whoever reaches that inbox later has a
+working key to the account.
+
+**Detect.** Read the reset flow: is the token random (32+ bytes), stored hashed,
+given an expiry (an hour is normal), and deleted the moment it is redeemed?
+A token that survives its own use can be replayed.
+
+**Fix.** All four properties. Also do not reveal whether an address exists — the
+response is identical either way, or the endpoint becomes an account enumerator.
+
+## 29. Slow down repeated failed logins
+
+Rate limiting by endpoint (item 5) is not the same control. This one is per
+account: without it, an attacker works through a password list against one
+target at their leisure.
+
+**Detect.** Look for a failure counter keyed on the account, and what it does
+after N failures.
+
+**Fix.** Exponential backoff or a temporary lock after ~5 failures, keyed on
+account **and** on IP, since either alone is trivially bypassed. Tell the user
+their account is locked; do not silently drop the attempt.
+
+## 30. Give the app a scoped database key
+
+If the app is compromised, the attacker inherits exactly what that key can do. A
+superuser or service-role key means they can read every table and drop them.
+
+**Detect.** Find the connection string or client construction. In Supabase, the
+tell is `service_role` anywhere near client or server-request code — that key
+bypasses every RLS policy you wrote. In Postgres, check whether the role is the
+owner or a superuser.
+
+**Fix.** A dedicated role with only the grants the app uses, and RLS enforced on
+it. Keep the privileged key for migrations, run from somewhere the app cannot
+reach.
+
+## 31. Put bot protection on public signup and contact forms
+
+An open signup form fills with fake accounts. If it sends mail, the sending
+domain gets burned along with it.
+
+**Detect.** Look for a captcha, a proof-of-work, or a rate limit on the public
+POST endpoints. A honeypot field alone stops only the laziest bots.
+
+**Fix.** Turnstile or hCaptcha on signup and contact, verified **server-side** —
+a client-side widget with no server verification is decoration.
+
+## 32. Take the debug and admin endpoints out of production
+
+Routes built for convenience during development are the first thing an attacker
+looks for.
+
+**Detect.** Grep for `/debug`, `/test`, `/dev`, `/__`, `/admin`, `/status`,
+`/metrics`, `/graphql` (if introspection is on), framework debug toolbars, and
+any route registered behind an `if (dev)` that is not actually gated at runtime.
+Check the production build output, not only the source.
+
+**Fix.** Remove them, or gate them behind authentication and an allowlist. A
+route that only *looks* unreachable because nothing links to it is reachable.
+
+## 33. Read secrets from a manager, never from source
+
+Hardcoded secrets end up in git history, build artefacts, screen recordings and
+support tickets. Removing the line later does not un-leak them.
+
+**Detect.** Grep for assignments of key-shaped literals. Check whether CI reads
+from repository secrets or from a checked-in file. Check whether a `.env.example`
+carries real values rather than placeholders.
+
+**Fix.** Environment variables from the platform's own store, and rotation for
+anything that was ever committed. Add secret scanning so the next one never gets
+in (item 42).
+
+---
+
+# Section 2 — the ones that are not obvious
+
+Items 1–33 are the categories everyone eventually hears about. These are the
+ones that survive a clean pass on all of them. Most projects score well on the
+first list and badly on this one; that is normal, and fixing them in that order
+is correct.
+
+## 34. Find the SECURITY DEFINER functions
+
+A `SECURITY DEFINER` function runs with its creator's permissions, so it quietly
+ignores every RLS policy you wrote. Perfect policies plus one helper function
+can still leak the whole table.
+
+**Detect.** `select proname, prosecdef from pg_proc where prosecdef;` or grep
+migrations for `security definer`. Then read each one: what does it select, and
+does it filter by `auth.uid()` itself?
+
+**Fix.** Prefer `SECURITY INVOKER`. Where the definer is genuinely needed, set a
+narrow `search_path` on the function and do the ownership check inside it, since
+nothing else will.
+
+## 35. Keep JWTs short and refresh tokens revocable
+
+A long-lived JWT cannot be withdrawn. If it leaks it stays valid until it
+expires, whatever you do at the server.
+
+**Detect.** Find the access-token lifetime. Anything beyond ~15 minutes with no
+refresh mechanism means revocation is impossible. Check whether refresh tokens
+are stored server-side and can actually be deleted.
+
+**Fix.** Short access token, long refresh token held in the database and revoked
+on logout, password change and suspicious activity. Rotate the refresh token on
+each use so a stolen one is detectable when both copies get used.
+
+## 36. Bind the session to something about the device
+
+A bare token works from anywhere. Binding does not stop theft, but it turns a
+silent success into a visible anomaly.
+
+**Detect.** Does the session record store anything beyond the token — a user
+agent, an IP prefix, a device id — and is it compared on use?
+
+**Fix.** Store a coarse signal and re-authenticate when it changes. Keep it
+coarse: full-IP binding breaks mobile users constantly, so use an ASN or a /24
+rather than an exact address.
+
+## 37. Set Cache-Control on authenticated responses
+
+This is a real and recurring incident class, not a theoretical one: one wrong
+header on an authenticated route and a CDN serves one user's dashboard to a
+different user.
+
+**Detect.** For every route that returns per-user data, check the response
+headers. Anything cacheable — a missing header, `public`, or a bare `max-age` —
+is the bug. Check the CDN or platform config too, since it may add caching the
+application never set.
+
+**Fix.** `Cache-Control: private, no-store` on authenticated responses, and
+`Vary: Cookie, Authorization` where any shared cache is in front. Test it by
+requesting the same URL as two different users through the CDN, not against the
+origin.
+
+## 38. Do not ship sourcemaps to production
+
+A sourcemap hands over the original unminified source, including comments and
+internal logic.
+
+**Detect.** Look for `.map` files in the deployed output, and for
+`//# sourceMappingURL=` at the end of the shipped bundles. Check the build
+config, since several frameworks emit them by default.
+
+**Fix.** Turn them off for the production build, or upload them to the error
+tracker privately and strip them from the public artefact.
+
+## 39. Put integrity hashes on external scripts
+
+Every external `<script src>` is a standing invitation: if that CDN is
+compromised, their code runs on your page with full access to it.
+
+**Detect.** Any `<script>` or `<link rel=stylesheet>` pointing at a third-party
+host without an `integrity` attribute.
+
+**Fix.** Add `integrity="sha384-…"` and `crossorigin="anonymous"`, or better,
+vendor the file into your own build so there is no third party at runtime.
+
+## 40. Make CI install from the lockfile, exactly
+
+Without it the build resolves whatever is newest at the time, so a hijacked
+version lands in production on its own.
+
+**Detect.** Read the CI workflow: `npm install` and `yarn` resolve fresh;
+`npm ci`, `yarn --frozen-lockfile`, `pnpm --frozen-lockfile` and
+`uv sync --locked` do not. Also check the lockfile is committed at all.
+
+**Fix.** Switch to the locked command and commit the lockfile.
+
+## 41. Pin third-party GitHub Actions to a commit SHA
+
+A tag is a movable pointer. If a maintainer is compromised, a moved tag runs new
+code inside the pipeline with access to its secrets.
+
+**Detect.** Grep the workflows for `uses:` lines ending in a version tag
+(`@v4`, `@main`). Actions published by `actions/` are lower risk but the same
+mechanism applies.
+
+**Fix.**
+
+```yaml
+- uses: actions/checkout@8f4b7f8…   # v4.2.2
+```
+
+Keep the tag in a trailing comment so the version stays readable. Also give the
+workflow the narrowest `permissions:` block it can run with — the default token
+is far broader than most jobs need.
+
+## 42. Scan for secrets before they are committed
+
+The fastest fix for a leaked key is never letting it get in.
+
+**Detect.** Is there a pre-commit hook, a CI scanning step, or the platform's
+own push protection enabled?
+
+**Fix.** Any of the three. Scan the **staged diff** rather than the whole tree,
+so the gate does not trip on secrets-shaped text already in the history, and
+match in a language whose regex engine you have tested — a gate that fails open
+is worse than no gate.
+
+## 43. Scope internal package names
+
+If code references an internal package name that nobody has claimed on the
+public registry, anyone can publish under that name and some installers will
+fetch theirs instead.
+
+**Detect.** List the dependencies that are not public packages. Check whether
+each is scoped (`@org/name`) and whether the scope is actually registered.
+
+**Fix.** Scope every internal package, claim the scope publicly even if nothing
+is published under it, and pin the registry for that scope in `.npmrc`.
+
+## 44. Verify webhook signatures, then verify they are recent
+
+A signature proves the payload is genuine. It does not prove it is *new* —
+without a timestamp check, one captured request replays forever.
+
+**Detect.** After the signature check, is there a timestamp tolerance and a
+record of event ids already processed?
+
+**Fix.** Reject anything older than ~5 minutes, and store processed event ids
+long enough to reject a repeat. Compare the signature with a timing-safe
+function (item 47).
+
+## 45. Block SSRF on any fetch of a user-supplied URL
+
+If the app fetches a URL a user gave it, that URL can point at the internal
+network or at the cloud metadata endpoint — which is where the instance
+credentials live.
+
+**Detect.** Find every outbound request whose URL comes from user input:
+webhooks the user configures, link previews, avatar-by-URL, PDF-from-URL,
+importers.
+
+**Fix.** Allowlist schemes to http/https, resolve the hostname and reject
+private, loopback, link-local and IPv6-mapped ranges — `169.254.169.254`
+especially — then re-check after every redirect, since the first hop can be
+public and the second private. Do not rely on parsing the string alone.
+
+## 46. Reject GraphQL queries that cost too much
+
+One deeply nested query can take the database down with no special access.
+
+**Detect.** If there is a GraphQL endpoint: is depth limited, is complexity
+scored, is introspection off in production?
+
+**Fix.** A depth limit, a complexity budget, and persisted queries if the client
+is your own. Mark N/A when there is no GraphQL rather than scoring it.
+
+## 47. Compare secrets with a timing-safe function
+
+A normal string comparison exits at the first mismatched character. That timing
+difference is measurable, and it leaks the secret one character at a time.
+
+**Detect.** Grep for `===`, `==` or `.equals()` applied to an API key, a webhook
+signature, a reset token or a session id.
+
+**Fix.** `crypto.timingSafeEqual` in Node, `hmac.compare_digest` in Python.
+Compare fixed-length digests so the length itself leaks nothing.
+
+**False positive.** A dictionary or map lookup keyed on the token —
+`sessions.get(token)` — is not a character-by-character comparison; the key is
+hashed first, so there is no per-character timing to measure. Grepping for a
+missing `compare_digest` will flag this pattern and it is a pass. Read the
+lookup before reporting it.
+
+## 48. Keep regexes off untrusted input when they can backtrack
+
+Certain patterns take exponential time on crafted input. One request pins a core
+at 100%.
+
+**Detect.** Look for nested quantifiers — `(a+)+`, `(\s*)*`, alternation inside
+a repeat — in anything applied to user input: validators, parsers, log matchers.
+
+**Fix.** Rewrite to avoid nesting, anchor the pattern, cap the input length
+before matching, or use a linear-time engine. Validate emails with a library
+rather than a hand-written regex.
+
+## 49. Separate staging from production completely
+
+Shared keys mean a leak from a throwaway environment exposes real customer data.
+
+**Detect.** Compare the environment configuration: different database, different
+API keys, different bucket? Does staging hold a copy of production data?
+
+**Fix.** Separate everything, and seed staging with synthetic data. If real data
+must be copied, anonymise it on the way in, not later.
+
+## 50. No shared logins
+
+A shared account cannot be revoked for one person, and no log can tell you who
+did what.
+
+**Detect.** Look for a single admin account, a credential in a shared document,
+or one deploy key used by several people.
+
+**Fix.** Individual accounts or SSO, each with its own MFA, each revocable
+alone.
+
+## 51. Keep an audit log for administrative changes
+
+Ordinary logging tells you the system was accessed. An audit log tells you which
+human changed which record — which is the question asked after an incident.
+
+**Detect.** Is there a table or stream recording actor, action, target and
+timestamp for privileged operations? Is it append-only, and is it kept somewhere
+the application cannot rewrite?
+
+**Fix.** Record all four fields for every admin mutation, keep it append-only,
+and retain it long enough to be useful — most incidents are found months late.

@@ -1,13 +1,13 @@
 ---
 name: pre-launch-security-audit
-description: Audits an app against the 25 things that must be true before it goes live - leaked keys, secrets in git history, missing authorization rules, client-side-only auth, no rate limiting, unvalidated input, wildcard CORS, weak password hashing, SQL injection, XSS, unverified webhooks, vulnerable dependencies, unverified email signup, guessable sequential IDs, no backups, no spend alerts - then reads for the logic-level flaws grepping cannot see, attacks it the way someone hostile would, and fixes what the user approves, most dangerous first. Use whenever the user is about to ship, deploy, launch or go live; asks "is this safe", "is this production-ready", or wants a security review, audit or hardening pass; says "güvenlik denetimi yap", "yayına almadan kontrol et", "API anahtarım sızmış mı", ".env'i commit etmişim"; mentions exposed secrets, RLS policies, auth bugs, API abuse or a surprise cloud bill; and proactively before any AI-generated app meets real users. Not for SEO, meta tags or the technical tells that expose a site as vibecoded; use vibecode-tech-audit for that.
+description: Audits an app against 51 checks in two scored sections. Section 1, the 33 that must be true before launch - leaked keys, secrets in git history, missing row-level security, client-side-only auth, CSRF, sessions that never end, reusable reset tokens, no login backoff, a superuser database key, SQL injection, XSS, unvalidated input, wildcard CORS, open uploads, leaky stack traces, unverified webhooks, vulnerable dependencies, unverified email, guessable IDs, reachable debug endpoints, hardcoded secrets, no backups, no spend alerts. Section 2, the 18 that survive a clean pass on all of it - SECURITY DEFINER functions that bypass RLS, unrevocable JWTs, a CDN caching one user's page for another, shipped sourcemaps, missing subresource integrity, CI that ignores the lockfile, GitHub Actions pinned to movable tags, dependency confusion, webhook replay, SSRF, non-timing-safe comparison, GraphQL cost, ReDoS, shared staging keys, shared logins, no audit trail. Cites a file and line for every pass and fail, marks UNKNOWN rather than guessing, then reads for the logic-level flaws grepping cannot see, attacks it the way someone hostile would, and fixes what the user approves one at a time. Use whenever the user is about to ship, deploy, launch or go live; asks "is this safe", "is this production-ready", or wants a security review, audit, score or hardening pass; says "guvenlik denetimi yap", "güvenlik denetimi yap", "yayina almadan kontrol et", "API anahtarim sizmis mi", ".env'i commit etmisim", "guvenli mi", "skor ver"; mentions exposed secrets, RLS policies, auth bugs, API abuse or a surprise cloud bill; and proactively before any AI-generated app meets real users. Not for SEO, meta tags or the technical tells that expose a site as vibecoded; use vibecode-tech-audit for that.
 ---
 
 # Pre-launch security audit
 
 AI-assisted code gets built to make the happy path work. Nothing in that loop
 forces the app to be safe — the model writes what was asked for, the app runs,
-the demo looks great, and every one of the 25 items below is quietly still
+the demo looks great, and every one of the 51 items below is quietly still
 undone. That's the gap this skill closes.
 
 Two rules govern how you work here. First, **be specific**: a finding is only
@@ -24,7 +24,7 @@ Read `package.json` / `requirements.txt` / `go.mod`, the framework config, and
 the directory layout. What matters changes completely with the stack: a Supabase
 app lives or dies on Row Level Security, a Next.js app on the server/client
 boundary, an Express API on middleware ordering. Note which of these you're in
-before you start — it determines which of the 25 items are load-bearing and
+before you start — it determines which of the 51 items are load-bearing and
 which are not applicable.
 
 Also establish what the app actually handles. An app with no accounts, no
@@ -51,7 +51,7 @@ starting point that catches the obvious cases fast — it does not replace
 reading the auth and data-access code yourself, which is where the serious
 findings almost always are.
 
-Then walk `references/checklist.md`, which has all 25 items with what to grep
+Then walk `references/checklist.md`, which has all 51 items with what to grep
 for, how to tell a real finding from a false positive, and the fix per stack.
 Read it — the detail there is the substance of this skill.
 
@@ -87,9 +87,14 @@ it, say so in the report rather than implying the code was cleared.
 ### 3. Report before touching anything
 
 The user needs to see the shape of the problem before code starts changing.
-Group findings by how much damage they do, not by checklist order:
+Group findings by how much damage they do, not by checklist order.
+
+**Open with two lines that can be screenshotted**, then the detail:
 
 ```markdown
+MUST-HAVES: 19 / 24
+NOT SO OBVIOUS: 3 / 16
+
 ## Security audit — <project>
 
 **Verdict:** <not safe to ship / ship with caveats / clean> — one sentence why.
@@ -99,10 +104,30 @@ Group findings by how much damage they do, not by checklist order:
 |---|---------|-------|-----------|----------------------|
 | 1 | Supabase service_role key in client bundle | `src/lib/db.ts:4` | Confirmed | Reads and deletes every row in every table, bypassing RLS |
 
-### High — likely exploited once anyone looks
-### Medium — real but bounded
-### Notes — checked and fine, or not applicable here
+### Should fix — real gaps, not urgent
+### Passed — one line each, no elaboration
+### Unknown — what you could not determine, and what you would need to see
+### Anything else — findings no item on either list covers
+### Ask me — the questions in step 3b, unscored
+### Fix first — the three highest-impact items, in order, each with why it ranks there
 ```
+
+**Score the two sections separately.** Section 1 is items 1–33, Section 2 is
+34–51. The denominator counts **applicable checks only** — an item marked N/A
+leaves it. Most projects score well on the first and badly on the second; say so
+when it happens, because it is normal and it is the right order to fix in.
+
+**Three rules govern the scoring, and they are what make it worth anything:**
+
+- **Cite a file and a line for every pass and every fail.** A pass with no
+  citation is a guess wearing a tick.
+- **UNKNOWN is a real answer.** If you cannot find evidence either way, mark it
+  UNKNOWN and say what you would need to see. Never resolve an unknown into a
+  pass to make the number look better.
+- **Never assume a framework default handles it.** Verify it in this codebase.
+  "Next.js does CSRF" is not a finding; the line that proves it is.
+
+A generous audit is useless. If the score is bad, report the bad score.
 
 **Grade severity by preconditions, not by feel.** Without a rule the same bug
 lands in a different tier on a different day, and the user learns the tiers mean
@@ -133,11 +158,48 @@ That last section earns its place: telling the user "passwords are hashed with
 bcrypt cost 12, cookies are httpOnly+Secure+SameSite=Lax, both fine" is how they
 learn the audit was thorough rather than lucky.
 
-Then ask which to fix. Offer the sensible default — "I'd fix all Critical and
-High now; the Medium items are one-liners I can do in the same pass" — rather
-than making them adjudicate 20 items one at a time.
+### 3b. Ask about what the repository cannot show
 
-### 4. Fix, most dangerous first
+Some of the things most likely to end a project leave no trace in the code.
+List these as questions, do not score them, and do not guess at the answers:
+
+- Are automated backups running, and has a restore actually been tested? An
+  untested backup is a guess; people find out theirs were empty when they need
+  them.
+- Are billing and spend alerts on? For a solo app the first sign of abuse is
+  usually financial, and a scraped key can cost thousands before anyone opens
+  the dashboard.
+- Do the registrar and DNS have 2FA and a transfer lock? Whoever controls DNS
+  controls the app, the email and the ability to issue certificates — a bigger
+  prize than the app login.
+- Are CAA records set, and is there any dangling DNS? A subdomain still pointing
+  at a service nobody owns any more can be claimed by someone else.
+- Is there a WAF in front of it?
+- Is the admin panel IP-allowlisted or behind a VPN? If it is only used from a
+  few places, the rest of the internet has no reason to reach the login page.
+- Are there canary tokens planted? Real breaches are quiet; a fake credential
+  nobody has a legitimate reason to touch turns a maybe into a signal.
+- Has there been a pen test or external review in the last 12 months? You cannot
+  audit your own blind spots, and enterprise customers eventually ask.
+
+### 3c. Report what is not on either list
+
+Anything you found that no item covers goes here, and it matters most. The
+checklist encodes what has already gone wrong for other people; this section is
+where the thing specific to *this* codebase shows up. Never skip it because the
+lists came back clean.
+
+Then **stop and ask** whether to fix anything. Steps 1–3 are read-only: nothing
+is changed, fixed or refactored until the user says so. Offer the sensible
+default — "I'd fix all Critical and High now; the Medium items are one-liners I
+can do in the same pass" — rather than making them adjudicate 20 items one at a
+time.
+
+### 4. Fix, most dangerous first, one at a time
+
+**One item per turn.** Show the change, explain what it does, wait for approval,
+then move to the next. Never batch fixes together: a batch cannot be reviewed,
+and when something breaks nobody knows which change did it.
 
 Work in the order you reported. Some things to keep in mind while fixing:
 
@@ -184,5 +246,5 @@ that's the most reassuring line in the whole report.
 
 ## Reference
 
-`references/checklist.md` — all 25 items in full: detection, false positives,
+`references/checklist.md` — all 51 items in full: detection, false positives,
 and stack-specific fixes. Load it during step 2 and keep it open through step 4.
