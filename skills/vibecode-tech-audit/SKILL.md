@@ -1,6 +1,6 @@
 ---
 name: vibecode-tech-audit
-description: Audits a site for the 20 technical giveaways that expose it as vibecoded and quietly wreck its SEO and shareability - default vercel.app subdomain, empty view-source because everything renders client-side, no real 404, leftover "Vite + React" title and favicon, duplicate page titles, missing meta description and og:image, no structured data, zero or multiple H1s, no canonical, no sitemap or llms.txt, robots.txt blocking crawlers, missing html lang and alt text, public source maps, console errors, huge JS bundle. Runs real checks against the live URL or build output, then fixes what the user approves. Use whenever the user is about to publish, deploy or launch a site; asks why it isn't on Google, isn't indexed, gets no traffic, ranks badly, shares as a blank box on WhatsApp/X/LinkedIn/Slack, or loads slowly; mentions Lighthouse, Core Web Vitals, meta tags, sitemaps, robots.txt, favicons, bundle size or AI crawlers; and proactively before any AI-generated site goes live.
+description: Audits a site for the 20 technical giveaways that expose it as vibecoded and quietly wreck its SEO and shareability - default vercel.app subdomain, empty view-source, no real 404, leftover "Vite + React" title and favicon, duplicate page titles, missing meta description and og:image, no structured data, zero or multiple H1s, no canonical, no sitemap or llms.txt, robots.txt blocking crawlers, missing html lang and alt text, public source maps, huge JS bundle. Runs real checks against the live URL or build output, then fixes what the user approves. Use whenever the user is about to publish, deploy or launch a site; asks why it isn't on Google, isn't indexed, gets no traffic, or shares as a blank box on WhatsApp/X/LinkedIn/Slack; says "sitem Google'da çıkmıyor", "neden indexlenmiyor", "linki paylaşınca görsel gelmiyor", "site yavaş açılıyor"; mentions Lighthouse, Core Web Vitals, sitemaps, robots.txt or bundle size. Not for the visual and copy tells that make a page look AI-made; use de-ai-slop-ui.
 ---
 
 # Vibecode technical audit
@@ -34,11 +34,15 @@ architecture conversation, which is the one genuinely large item here.
 ### 2. Run the checks
 
 ```bash
-# scripts/audit_site.py, resolved relative to this skill's own directory
-python3 "$SKILL_DIR/scripts/audit_site.py" https://example.com   # live site
-python3 "$SKILL_DIR/scripts/audit_site.py" ./dist                # local build output
-python3 "$SKILL_DIR/scripts/audit_site.py" ./dist --json         # machine-readable
+# $SKILL_DIR is not set in every runtime; locate the script directly.
+AUDIT_SITE="$(find "$HOME/.claude/skills" "$HOME/agents" -name audit_site.py -path '*vibecode-tech-audit*' -print -quit 2>/dev/null)"
+python3 "$AUDIT_SITE" https://example.com   # live site
+python3 "$AUDIT_SITE" ./dist                # local build output
+python3 "$AUDIT_SITE" ./dist --json         # machine-readable
 ```
+
+If `$AUDIT_SITE` comes back empty the skill lives somewhere these roots do not
+cover — ask the user where it is installed rather than guessing a path.
 
 It fetches the page and checks the head tags, H1 structure, `lang`, alt text,
 canonical, og/twitter tags, structured data, favicon, robots.txt, sitemap.xml,

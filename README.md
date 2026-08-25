@@ -1,6 +1,6 @@
 # risk-agent
 
-Point it at something you built fast, and find out what could become a legal, regulatory or financial problem — in one pass, before someone else finds it.
+Point it at something you built fast, and find out what goes wrong once it is public — before someone else finds it.
 
 Software written quickly and shipped anyway carries a category of risk
 that no test suite reports. The dependency whose licence forbids the way you are
@@ -9,13 +9,17 @@ chatbot that never tells anyone it is a machine. The API key on a plan with no
 spending cap, behind an endpoint with no rate limit. None of these break the
 build, and all of them are somebody else's leverage the moment they are noticed.
 
-This repository is the single pass over all of it. One command, every category —
-licensing, data protection, consumer terms, AI transparency, accessibility,
-cross-border transfers, cost blast radius, unit economics, name collision —
-ranked by what it would actually cost you, not by how easy it was to detect.
+What exists today is two passes, both technical. One is the security pass before
+launch — leaked keys, secrets in git history, missing authorisation, no rate
+limiting, no spend alerts. The other is the pass over the technical and SEO tells
+that keep a site out of search results. Both fix what you approve rather than
+only reporting.
 
-Then it fixes what can be fixed in code, drafts what has to be written, and says
-plainly which findings need a lawyer rather than pretending it is one.
+The legal and regulatory categories — licensing, data protection, consumer terms,
+AI transparency, accessibility, cross-border transfers, cost blast radius, unit
+economics, name collision — and the single command that runs all of them in one
+ranked pass are the roadmap, not the current state. They are in
+[BACKLOG.md](BACKLOG.md) and none of them are written yet.
 
 ## What this is not
 
@@ -26,9 +30,10 @@ that never needed one. Every output says so, in those words.
 It does not tell you that you are compliant. Nothing here produces a clean bill
 of health, because that is not a thing an automated pass can honestly give.
 
-It is not a security audit — `pre-launch-security-audit` does that — and not an
-SEO or technical audit, which is `vibecode-tech-audit`. Where a finding belongs
-to one of those, it says so and points there rather than duplicating it badly.
+It is not one skill. The security pass and the technical pass are separate
+skills in this repository — `pre-launch-security-audit` and
+`vibecode-tech-audit` — and where a finding belongs to the other one, it says so
+and points there rather than duplicating it badly.
 
 It does not track legislative change. Every regulatory claim carries the date
 the text was checked, and a check from six months ago is a check from six months
@@ -47,8 +52,8 @@ bash ~/Desktop/agent/_setup/sync-skills.sh
 ```
 
 That clones every agent repository and links its `skills/` into `~/.claude/skills`,
-so they are available in every session and every folder. Re-run it whenever the
-daily loop ships something new — it pulls rather than re-clones.
+so they are available in every session and every folder. Re-run it whenever one of
+these repositories ships something new — it pulls rather than re-clones.
 
 Then simply ask. Each skill's `description` frontmatter is written to match how
 the request actually gets phrased, in English or Turkish, so you do not name the
@@ -76,6 +81,8 @@ examples/
   <name>/             worked example on real input, with the output committed
 ```
 
+`agents/` and `examples/` are empty so far.
+
 ## Roadmap
 
 See [BACKLOG.md](BACKLOG.md). The first unchecked item is the one being built.
@@ -85,12 +92,12 @@ See [BACKLOG.md](BACKLOG.md). The first unchecked item is the one being built.
 | Skill | What it does |
 | --- | --- |
 | [pre-launch-security-audit](skills/pre-launch-security-audit) | The pass before anything goes public: secrets, permissions, exposed endpoints, dependency risk. |
-| [vibecode-tech-audit](skills/vibecode-tech-audit) | Audit a vibe-coded project for the legal, regulatory and technical exposure it carries. |
+| [vibecode-tech-audit](skills/vibecode-tech-audit) | Check a site against the 20 technical tells — titles, meta, og:image, canonical, sitemap, robots, 404, bundle size — that keep it out of search results and make its links unfurl as a grey box. |
 
 These arrived already written and in daily use, rather than being built against the queue below — which is why most carry no item number. Some have Turkish bodies: they were written in the language they are used in, and translating them is a queue item rather than a blocker.
 
 Everything still under Queue in [BACKLOG.md](BACKLOG.md) does not exist
-yet. The daily loop builds one item a day.
+yet.
 ## Licence
 
 MIT. See [LICENSE](LICENSE).
