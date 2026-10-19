@@ -17,9 +17,11 @@ more access than it needed, and the first sign is something you never see.
 ## Run the scan first
 
 ```bash
-SCAN="$(find "$HOME/agents" "$HOME/.claude/skills" -name scan_harness.sh -print -quit 2>/dev/null)"
-bash "$SCAN"
+bash ~/.claude/skills/harness-security-audit/scripts/scan_harness.sh
 ```
+
+To also check the GitHub workflow files of your own repositories for unpinned
+actions, run it with `HARNESS_REPOS=/path/to/your/repos` (default: `~/.claude`).
 
 It covers the six checks below mechanically. Read the findings yourself; the
 scanner reports shapes, and every hit needs the judgement in "Telling a

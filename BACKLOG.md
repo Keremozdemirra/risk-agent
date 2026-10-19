@@ -22,6 +22,7 @@ Rules of thumb applied to every item:
 
 ## Done
 
+- [x] **harness-security-audit** · shipped 2026-08-26; no queue item.
 - [x] **pre-launch-security-audit** · shipped 2026-08-20. Written before this repository existed and published here as-is; no queue item.
 - [x] **vibecode-tech-audit** · shipped 2026-08-20. Written before this repository existed and published here as-is; no queue item.
 
