@@ -18,7 +18,7 @@ only reporting.
 The legal and regulatory categories (licensing, data protection, consumer terms,
 AI transparency, accessibility, cross-border transfers, cost blast radius, unit
 economics, name collision) and the single command that runs all of them in one
-ranked pass are the roadmap, not the current state. They are in
+ranked pass are the roadmap. They are in
 [BACKLOG.md](BACKLOG.md) and none of them are written yet.
 
 ## What this is not
